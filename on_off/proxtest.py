@@ -163,7 +163,7 @@ def main():
     while True:
         if x.is_in_motion is False:
             logging.info("X Position: " + str(x.position))
-            brea
+            break
 
     input("please mount the glass")
     run_motor_seq(x)
