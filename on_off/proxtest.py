@@ -9,6 +9,7 @@ import numpy as np
 import thorlabs_apt as apt
 import settings
 
+MOVING_DISTANCE = 0.1
 
 def run_init_settings():
     logging.info("adb root")
@@ -36,18 +37,17 @@ def collect_data(samples=50):
     process = subprocess.run(["adb", "shell", "logcat", "-c"], stdout=subprocess.PIPE)
     # run mcuservice to collect proximity sensor data
     process = subprocess.Popen(
-        ["adb", "shell", "logcat", "-s", "mcuservice"], stdout=subprocess.PIPE
-    )
+        ["adb", "shell", "mfg", "captouch", "status", "10"], stdout=subprocess.PIPE)
 
     data = []
     current_sample = 0
     # parse data for 8 config values
     for line in process.stdout:
-        if "SX92" in line.decode("utf8").strip():
+        if "DIFF_825c_mean" in line.decode("utf8").strip():
             line = line.decode("utf8").strip()
-            adcs = line[line.find("Diff 0..7: ") + 11 : -6]
-            adc_config = adcs.split(" ")
-            data.append(adc_config)
+            line = line.strip(',')
+            adc_config = line.split(": ")
+            data.append(adc_config[-1])
             current_sample += 1
             if current_sample >= samples:
                 logging.info(f"{samples} have been collected.")
@@ -56,49 +56,24 @@ def collect_data(samples=50):
     process.wait()
     return data
 
-
-def get_config_ave(adc_data):
-    samples = {}
-    ave_configs = {}
-    num_of_configs = 8
-
-    config_num = 1
-    for _index in range(num_of_configs):
-        samples[f"Config_{config_num}"] = []
-        config_num += 1
-
-    for data in adc_data:
-        config_num = 1
-        for value in data:
-            samples[f"Config_{config_num}"].append(float(value))
-            config_num += 1
-
-    config_num = 1
-    for config in samples:
-        ave_configs[f"Config_{config_num}"] = np.mean(np.array(samples[config]))
-        logging.info(
-            f"Config_{config_num}: " + str(ave_configs[f"Config_{config_num}"])
-        )
-        config_num += 1
-
-    return ave_configs
-
-
 def run_motor_seq(motor, step=0.1, iterations=65):
     logging.info(f"Motor position: {motor.position}mm")
 
     adc_data = collect_data()
-    get_config_ave(adc_data)
+    logging.info(adc_data)
+
+    #get_config_ave(adc_data)
 
     for _index in range(iterations):
-        motor.move_by(0.1)
+        motor.move_by(MOVING_DISTANCE)
         while True:
             if motor.is_in_motion is False:
                 logging.info(f"Motor position: {motor.position}mm")
                 break
 
         adc_data = collect_data()
-        get_config_ave(adc_data)
+        logging.info(adc_data)
+       # get_config_ave(adc_data)
 
 
 def main():
@@ -141,9 +116,9 @@ def main():
     logging.info("Homing x-axis...")
     x.move_home(True)
     while True:
-        if x.is_in_motion is False:
-            logging.info("X Position: " + str(x.position))
-            break
+       if x.is_in_motion is False:
+           logging.info("X Position: " + str(x.position))
+           break
 
     logging.info("Homing y-axis...")
     y.move_home(True)
@@ -152,13 +127,13 @@ def main():
             logging.info("Y Position: " + str(y.position))
             break
 
-    y.move_to(30.4)
+    y.move_to(15.5)
     while True:
         if y.is_in_motion is False:
             logging.info("Y Position: " + str(y.position))
             break
 
-    x.move_to(17)
+    x.move_to(5.6)
     logging.info("X Position: " + str(x.position))
     while True:
         if x.is_in_motion is False:
